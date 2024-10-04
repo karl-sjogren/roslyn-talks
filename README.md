@@ -172,6 +172,14 @@ public class StringFinderAnalyzer : DiagnosticAnalyzer {
 }
 ```
 
+Alla analyzers ärver från `DiagnosticAnalyzer` och implementerar `Initialize`-metoden. I
+denna så registrerar man en eller flera callbacks som körs när en viss typ av syntaxnod
+påträffas. I exemplet ovan så registreras en callback specifikt för en `StringLiteralExpression`
+men mer avancerad analyzers kan registrera callbacks för flera olika typer av syntaxnoder.
+
+I callbacken som registreras så kan man sen inspektera noden och skapa upp en `Diagnostic`
+som beskriver vad som är fel.
+
 Detta är allt som behövs för att skapa en enkel analyzer. Om man lägger den i ett projekt
 som har netstandard2.0 som target så kan man sen antingen publicera detta som ett NuGet-paket
 eller referera det direkt i sitt projekt.
@@ -188,6 +196,91 @@ sätter `OutputItemType="Analyzer"`.
       OutputItemType="Analyzer" />
   </ItemGroup>
 ```
+
+### Enhetstesta analyzers
+
+TODO
+
+### CodeFixes
+
+När man har en analyzer som genererar en `Diagnostic` så kan man även skapa en `CodeFix` för
+att rätta till problemet som analyzern hittat. En `CodeFix` kopplas till ett eller flera
+`DiagnosticId`. En `CodeFix`kan föreslå flera olika sätt att rätta till problemet och användaren
+får sen välja vilken av dessa som ska användas.
+
+Nedan är ett exempel på en `CodeFix` som kan ändra en sträng till att vara uppercase eller
+lowercase, som identifieras via en analyzer som letar strängar som blandar stora och små
+bokstäver.
+
+```csharp
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(StringWithNonUniformCasingCodeFixProvider)), Shared]
+public sealed class StringWithNonUniformCasingCodeFixProvider : CodeFixProvider {
+    public override ImmutableArray<string> FixableDiagnosticIds => ["XA0002"];
+
+    public override FixAllProvider? GetFixAllProvider() => null;
+
+    public override async Task RegisterCodeFixesAsync(CodeFixContext context) {
+        var root = await context.Document.GetSyntaxRootAsync();
+        if (root == null)
+            return;
+
+        var diagnostic = context.Diagnostics.First();
+        var diagnosticSpan = diagnostic.Location.SourceSpan;
+
+        var literalSyntax = root.FindToken(diagnosticSpan.Start);
+        if (literalSyntax == default)
+            return;
+
+        string ToUpper(string text) => text.ToUpper();
+
+        var makeStringUpperCodeAction = CodeAction.Create(
+            "Make string upper case",
+            cancellationToken => RefactorAsync(context.Document, literalSyntax, ToUpper, cancellationToken),
+            equivalenceKey: $"{nameof(StringWithNonUniformCasingCodeFixProvider)}_ToUpper");
+
+        context.RegisterCodeFix(makeStringUpperCodeAction, context.Diagnostics);
+
+        string ToLower(string text) => text.ToLower();
+
+        var makeStringLowerCodeAction = CodeAction.Create(
+            "Make string lower case",
+            cancellationToken => RefactorAsync(context.Document, literalSyntax, ToLower, cancellationToken),
+            equivalenceKey: $"{nameof(StringWithNonUniformCasingCodeFixProvider)}_ToLower");
+
+        context.RegisterCodeFix(makeStringLowerCodeAction, context.Diagnostics);
+    }
+
+    public static async Task<Solution> RefactorAsync(
+            Document document,
+            SyntaxToken literalSyntax,
+            Func<string, string> convert,
+            CancellationToken cancellationToken) {
+        var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
+        if (root == null) {
+            throw new InvalidOperationException("Could not get syntax root");
+        }
+
+        var newLiteral = SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.ParseToken(convert(literalSyntax.Text)));
+        var newRoot = root.ReplaceNode(literalSyntax.Parent!, newLiteral);
+
+        var newDocument = document.WithSyntaxRoot(newRoot);
+
+        return newDocument.Project.Solution;
+    }
+}
+```
+
+En `CodeFix` ärver från `CodeFixProvider` och implementerar `RegisterCodeFixesAsync`. I denna
+metod så får man en `CodeFixContext` som innehåller information om vilka `Diagnostic` som ska
+fixas och var i koden denna finns.
+
+Koden registrerar sen två olika `CodeAction`, en för att göra strängen uppercase och en för att
+göra den lowercase. Om användaren väljer att aktivera någon av dessa från gränssnittet så anropas
+`RefactorAsync` som byter ut strängen i koden.
+
+### Enhetstesta CodeFixes
+
+TODO
 
 ## Sourcegenerators
 
