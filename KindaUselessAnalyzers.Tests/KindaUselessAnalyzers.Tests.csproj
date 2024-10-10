@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\StringFinderAnalyzer\StringFinderAnalyzer.csproj" />
+    <ProjectReference Include="..\KindaUselessAnalyzers\KindaUselessAnalyzers.csproj" />
   </ItemGroup>
 
 </Project>

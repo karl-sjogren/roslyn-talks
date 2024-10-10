@@ -1,9 +1,9 @@
 ﻿
-using VerifyCS = StringFinderAnalyzer.Tests.RoslynUtils.CSharpAnalyzerVerifier<StringFinderAnalyzer.StringFinderAnalyzer>;
+using VerifyCS = KindaUselessAnalyzers.Tests.RoslynUtils.CSharpAnalyzerVerifier<KindaUselessAnalyzers.KindaUselessAnalyzers>;
 
-namespace StringFinderAnalyzer.Tests;
+namespace KindaUselessAnalyzers.Tests;
 
-public class StringFinderAnalyzerTests {
+public class KindaUselessAnalyzersTests {
     [Fact]
     public async Task FindsString() {
         var test = new VerifyCS.Test {

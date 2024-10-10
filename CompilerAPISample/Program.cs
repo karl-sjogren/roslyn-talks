@@ -28,6 +28,7 @@ var compilation = CSharpCompilation.Create("MyAssembly",
     )
     .AddSyntaxTrees(syntaxTree);
 
+// Spotta ut assemblyn till en fil
 var compilationResult = compilation.Emit("MyAssembly.dll");
 
 if (compilationResult.Success) {

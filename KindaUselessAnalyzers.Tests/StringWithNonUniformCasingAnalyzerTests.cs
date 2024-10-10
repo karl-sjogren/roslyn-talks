@@ -1,7 +1,7 @@
 ﻿
-using VerifyCS = StringFinderAnalyzer.Tests.RoslynUtils.CSharpAnalyzerVerifier<StringFinderAnalyzer.StringWithNonUniformCasingAnalyzer>;
+using VerifyCS = KindaUselessAnalyzers.Tests.RoslynUtils.CSharpAnalyzerVerifier<KindaUselessAnalyzers.StringWithNonUniformCasingAnalyzer>;
 
-namespace StringFinderAnalyzer.Tests;
+namespace KindaUselessAnalyzers.Tests;
 
 public class StringWithNonUniformCasingAnalyzerTests {
     [Fact]

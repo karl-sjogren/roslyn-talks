@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace StringFinderAnalyzer;
+namespace KindaUselessAnalyzers;
 
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(StringWithNonUniformCasingCodeFixProvider)), Shared]
 public sealed class StringWithNonUniformCasingCodeFixProvider : CodeFixProvider {

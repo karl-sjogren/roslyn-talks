@@ -7,11 +7,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CompilerAPISample", "Compil
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UsefulCompilerApiSample", "UsefulCompilerApiSample\UsefulCompilerApiSample.csproj", "{756B8ACD-4283-4ED3-AED3-FAC9BC8AAB93}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StringFinderAnalyzer", "StringFinderAnalyzer\StringFinderAnalyzer.csproj", "{2E4A6AAC-22CF-441D-9EFA-8865EA5D71E0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KindaUselessAnalyzers", "KindaUselessAnalyzers\KindaUselessAnalyzers.csproj", "{2E4A6AAC-22CF-441D-9EFA-8865EA5D71E0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StringFinderAnalyzer.SampleApp", "StringFinderAnalyzer.SampleApp\StringFinderAnalyzer.SampleApp.csproj", "{02D8A935-78FB-47D0-98BA-957B273E7026}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KindaUselessAnalyzers.SampleApp", "KindaUselessAnalyzers.SampleApp\KindaUselessAnalyzers.SampleApp.csproj", "{02D8A935-78FB-47D0-98BA-957B273E7026}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StringFinderAnalyzer.Tests", "StringFinderAnalyzer.Tests\StringFinderAnalyzer.Tests.csproj", "{4E201D9E-F165-4AC0-BAA5-952500222CE7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KindaUselessAnalyzers.Tests", "KindaUselessAnalyzers.Tests\KindaUselessAnalyzers.Tests.csproj", "{4E201D9E-F165-4AC0-BAA5-952500222CE7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

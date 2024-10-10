@@ -4,10 +4,10 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace StringFinderAnalyzer;
+namespace KindaUselessAnalyzers;
 
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-public class StringFinderAnalyzer : DiagnosticAnalyzer {
+public class KindaUselessAnalyzers : DiagnosticAnalyzer {
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [ _diagnosticDescriptor ];
 
     private DiagnosticDescriptor _diagnosticDescriptor { get; } = new(

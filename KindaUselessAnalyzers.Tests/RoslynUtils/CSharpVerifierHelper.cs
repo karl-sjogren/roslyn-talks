@@ -4,7 +4,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace StringFinderAnalyzer.Tests.RoslynUtils;
+namespace KindaUselessAnalyzers.Tests.RoslynUtils;
 
 internal static class CSharpVerifierHelper
 {

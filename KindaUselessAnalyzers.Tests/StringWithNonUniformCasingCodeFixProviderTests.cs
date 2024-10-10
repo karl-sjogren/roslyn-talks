@@ -1,6 +1,6 @@
-using VerifyFixCS = StringFinderAnalyzer.Tests.RoslynUtils.CSharpCodeFixVerifier<StringFinderAnalyzer.StringWithNonUniformCasingAnalyzer, StringFinderAnalyzer.StringWithNonUniformCasingCodeFixProvider>;
+using VerifyFixCS = KindaUselessAnalyzers.Tests.RoslynUtils.CSharpCodeFixVerifier<KindaUselessAnalyzers.StringWithNonUniformCasingAnalyzer, KindaUselessAnalyzers.StringWithNonUniformCasingCodeFixProvider>;
 
-namespace StringFinderAnalyzer.Tests;
+namespace KindaUselessAnalyzers.Tests;
 
 public class StringWithNonUniformCasingCodeFixProviderTests {
     [Fact]

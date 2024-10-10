@@ -2,21 +2,70 @@
 
 ## Introduktion
 
-Kompilatorn för C# och VB.NET, är open source of finns på <https://github.com/dotnet/roslyn>.
+Kompilatorn för C# och VB.NET heter sen rätt lång tid tillbaka Roslyn. Den ärär open source
+och finns på <https://github.com/dotnet/roslyn>.
 
-Parsar C# och VB.NET-kod och skapar ett syntaxträd (AST) som används för att generera IL-kod.
+Parsar C# och VB.NET-kod och skapar ett syntaxträd (AST, Abstract Syntax Tree) som används
+för att generera IL-kod. IL-koden i sig är maskinoberoende och körs i en
+"virtuell maskin"/runtime som exekverar koden eller kompilarar ner den till maskinkod.
+Denna är vad som kallas "Common Language Runtime", förkortat CLR i .NET Framework och
+"CoreCLR" i .NET Core/.NET 5+.
 
-IL-koden kompileras sen till maskin-kod av RyuJIT när koden körs.
+Processen som kompilerar maskinkoden heter RyuJIT och är en del av CLR/CoreCLR.
 
 VB.Net-delen är skriven i VB.NET medan C#-delen samt delad infrastruktur är skriven i C#.
 
-## Kompilering av kod
+### MSBuild
 
 `csc` och `vbc` är kompilatorerna som körs i bakgrunden när man kompilerar sitt projekt
-i Visual Studio eller med `dotnet build`.
+i Visual Studio eller med `dotnet build`. Dessa ser man dock sällan då de inte anropas
+direkt utan via MSBuild.
 
-Dom ser man dock väldigt sällan, annat än möjligtvis i något felmeddelande när kompileringen
-misslyckas.
+MSBuild är en väldigt generell task runner som används för att bygga alla möjliga
+typer av projekt. Om man anropar msbuild i en mapp så letar den efter filer som har
+en filändelse som slutar med `proj` och kör dessa. Det är med andra ord fullt möjligt
+att hitta på egna filändelser och sätta upp egna byggsystem baserat på MSBuild.
+
+MSBuild är separat från Roslyn men använder `csc` och `vbc` för att kompilera koden.
+Det som MSBuild tillför till det hela är en struktur för att beskriva hur koden ska
+kompileras. I sin yttersta form så är detta `.csproj` eller `.vbproj`-filer men bakom
+dessa så finns det en uppsjö `.target`och `.props`-filer.
+
+I sin enklaste form skulle en msbuild-fil kunna se ut så här.
+
+```xml
+<Project>
+    <Target Name="DoThings">
+    </Target>
+</Project>
+```
+
+Denna gör dock inte så mycket. Går man ett steg längre och faktiskt försöker kompilera
+något så kan det se ut så här.
+
+```xml
+<Project>
+    <ItemGroup>
+        <Compile Include="Program.cs"/>
+    </ItemGroup>
+    <Target Name="Build">
+        <Csc Sources="@(Compile)"/>
+    </Target>
+</Project>
+```
+
+För .NET Framework så hade man kunnat kompilera detta, för .NET så krävs det att man
+registrerar en massa grundläggande assemblies. Dessa referenser (och mycket annat)
+får man vanligtvis via en `Sdk` som `Microsoft.NET.Sdk` eller `Microsoft.NET.Sdk.Web`.
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+</Project>
+```
+
+Exempel: `dotnet msbuild -v:diag -tl:off`
+
+## Kompilering av kod
 
 Roslyn finns också tillgängligt som ett NuGet-paket som tillåter en att kompilera kod
 dynamiskt i en applikation.
@@ -43,35 +92,6 @@ var compilation = CSharpCompilation.Create("MyAssembly")
     .AddSyntaxTrees(syntaxTree);
 
 compilation.Emit("MyAssembly.dll");
-```
-
-### MSBuild
-
-MSBuild är separat från Roslyn men använder `csc` och `vbc` för att kompilera koden.
-Det som MSBuild tillför till det hela är en struktur för att beskriva hur koden ska
-kompileras. I sin yttersta form så är detta `.csproj` eller `.vbproj`-filer men bakom
-dessa så finns det en uppsjö `.target`och `.props`-filer.
-
-I sin enklaste form skulle en msbuild-fil kunna se ut så här.
-
-```xml
-<Project>
-    <ItemGroup>
-        <Compile Include="Program.cs"/>
-    </ItemGroup>
-    <Target Name="Build">
-        <Csc Sources="@(Compile)"/>
-    </Target>
-</Project>
-```
-
-För .NET Framework så hade man kunnat kompilera detta, för .NET så krävs det att man
-registrerar en massa grundläggange assemblies. Dessa referenser (och mycket annat)
-får man vanligtvis via en `Sdk` som `Microsoft.NET.Sdk` eller `Microsoft.NET.Sdk.Web`.
-
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-</Project>
 ```
 
 ### Verktyg för att inspektera syntaxträd/IL-kod
@@ -102,31 +122,46 @@ Console.WriteLine("Hello world");
 Detta parsas upp till ett träd motsvarande detta.
 
 ```csharp
-CompilationUnit()
+SyntaxFactory.CompilationUnit()
     .WithUsings(
-        SingletonList<UsingDirectiveSyntax>(
-            UsingDirective(
-                IdentifierName("System"))))
+        SyntaxFactory.SingletonList<UsingDirectiveSyntax>(
+            SyntaxFactory.UsingDirective(
+                SyntaxFactory.IdentifierName("System"))))
     .WithMembers(
-        SingletonList<MemberDeclarationSyntax>(
-            GlobalStatement(
-                ExpressionStatement(
-                    InvocationExpression(
-                        MemberAccessExpression(
+        SyntaxFactory.SingletonList<MemberDeclarationSyntax>(
+            SyntaxFactory.GlobalStatement(
+                SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.InvocationExpression(
+                        SyntaxFactory.MemberAccessExpression(
                             SyntaxKind.SimpleMemberAccessExpression,
-                            IdentifierName("Console"),
-                            IdentifierName("WriteLine")))
+                            SyntaxFactory.IdentifierName("Console"),
+                            SyntaxFactory.IdentifierName("WriteLine")))
                     .WithArgumentList(
-                        ArgumentList(
-                            SingletonSeparatedList<ArgumentSyntax>(
-                                Argument(
-                                    LiteralExpression(
+                        SyntaxFactory.ArgumentList(
+                            SyntaxFactory.SingletonSeparatedList<ArgumentSyntax>(
+                                SyntaxFactory.Argument(
+                                    SyntaxFactory.LiteralExpression(
                                         SyntaxKind.StringLiteralExpression,
-                                        Literal("Hello world"))))))))))
+                                        SyntaxFactory.Literal("Hello world"))))))))))
     .NormalizeWhitespace()
 ```
 
-Vill man enkelt inspektera ett syntaxträd så kan man göra detta på t.ex. [SharpLab](https://sharplab.io/#v2:C4LghgzsA0AmIGoA+ABATARgLAChcowE4AKAIgAkBTAG2oHsACAdzoCdrZSBKAbiA===) eller med t.ex. LINQPad.
+Vill man enkelt inspektera ett syntaxträd så kan man göra detta på t.ex. [SharpLab](https://sharplab.io/#v2:C4LghgzsA0AmIGoA+ABATARgLAChcowE4AKAIgAkBTAG2oHsACAdzoCdrZSBKAbiA===) eller med LINQPad.
+
+Ytterligare exempel.
+
+```csharp
+    return await _assetManagementContext
+        .LocationSharedNetworkCostAllocations
+        .AsNoTracking()
+        .Where(x => networkIds.Contains(x.NetworkId))
+        .Select(x => new LocationRelatedCostAllocation {
+            Allocation = x.Allocation,
+            Network = x.Network,
+            Project = x.PremisesProject
+        })
+        .ToArrayAsync(cancellationToken);
+````
 
 ## Analyzers och CodeFixes
 
@@ -138,7 +173,7 @@ Nedan är ett exempel på en väldigt enkel analyzer som uppmärksammar alla str
 
 ```csharp
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-public class StringFinderAnalyzer : DiagnosticAnalyzer {
+public class KindaUselessAnalyzers : DiagnosticAnalyzer {
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [ _diagnosticDescriptor ];
 
     private DiagnosticDescriptor _diagnosticDescriptor { get; } = new(
@@ -190,7 +225,7 @@ sätter `OutputItemType="Analyzer"`.
 ```xml
   <ItemGroup>
     <ProjectReference
-      Include="..\StringFinderAnalyzer\StringFinderAnalyzer.csproj"
+      Include="..\KindaUselessAnalyzers\KindaUselessAnalyzers.csproj"
       PrivateAssets="all"
       ReferenceOutputAssembly="false"
       OutputItemType="Analyzer" />

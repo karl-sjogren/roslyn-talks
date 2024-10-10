@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <ProjectReference
-      Include="..\StringFinderAnalyzer\StringFinderAnalyzer.csproj"
+      Include="..\KindaUselessAnalyzers\KindaUselessAnalyzers.csproj"
       PrivateAssets="all"
       ReferenceOutputAssembly="false"
       OutputItemType="Analyzer" />

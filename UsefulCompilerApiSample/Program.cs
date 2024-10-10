@@ -9,7 +9,7 @@ public class WorldHelloer : IWorldHelloer
 {
     public void SayHelloToWorld()
     {
-        Console.WriteLine(""Hello, World!"");
+        Console.WriteLine(""Hello World from WorldHelloer!"");
     }
 }
 ";
@@ -30,6 +30,7 @@ var compilation = CSharpCompilation.Create("MyAssembly",
     )
     .AddSyntaxTrees(syntaxTree);
 
+// Spotta ut assemblyn till en fil
 var compilationResult = compilation.Emit("MyAssembly.dll");
 
 if (compilationResult.Success) {
@@ -42,6 +43,6 @@ if (compilationResult.Success) {
     return;
 }
 
-// Ladda in den kompilerade assamblyn och anropa Program.Main
+// Ladda in den kompilerade assamblyn, skapa en instans av WorldHelloer och anropa SayHelloToWorld
 var worldHelloer = Activator.CreateInstanceFrom("MyAssembly.dll", "WorldHelloer")!.Unwrap() as IWorldHelloer;
 worldHelloer!.SayHelloToWorld();
