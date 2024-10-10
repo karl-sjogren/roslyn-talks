@@ -163,11 +163,13 @@ Ytterligare exempel.
         .ToArrayAsync(cancellationToken);
 ````
 
-## Analyzers och CodeFixes
+## Analyzers, CodeFixes och Refactorings
 
 Analyzers används för att uppmärksamma kod som inte följer en viss standard eller best practice.
-Eller som bara inte gör som man vill. Dom används också som instegspunkter för CodeFixes som är
-automatiserade sätt att justera kod.
+Eller som bara inte gör som man vill. Dom används också som instegspunkter för CodeFixes som
+används för att rätta till något en analyzer hittat. Utöver detta två så finns det också
+Refactorings, som är en form av CodeFix som inte rättar till något utan istället omstrukturerar
+koden.
 
 Nedan är ett exempel på en väldigt enkel analyzer som uppmärksammar alla strängar i koden.
 
