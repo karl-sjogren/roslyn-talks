@@ -28,6 +28,7 @@ public class Program {
 
         await test.RunAsync();
     }
+
     [Fact]
     public async Task ToLowerActionShouldMakeStringLowerCase() {
         var test = new VerifyFixCS.Test {

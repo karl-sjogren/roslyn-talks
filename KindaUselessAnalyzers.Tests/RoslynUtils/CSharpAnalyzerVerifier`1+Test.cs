@@ -11,7 +11,7 @@ public static partial class CSharpAnalyzerVerifier<TAnalyzer>
     public class Test : CSharpAnalyzerTest<TAnalyzer, DefaultVerifier> {
         public Test() {
             SolutionTransforms.Add((solution, projectId) => {
-                var compilationOptions = solution!.GetProject(projectId)!.CompilationOptions;
+                var compilationOptions = solution.GetProject(projectId)!.CompilationOptions;
                 compilationOptions = compilationOptions!.WithSpecificDiagnosticOptions(
                     compilationOptions.SpecificDiagnosticOptions.SetItems(CSharpVerifierHelper.NullableWarnings));
                 return solution.WithProjectCompilationOptions(projectId, compilationOptions);
