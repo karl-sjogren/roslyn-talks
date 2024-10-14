@@ -322,3 +322,9 @@ TODO
 ## Sourcegenerators
 
 TODO
+
+### Interceptors
+
+Experimentell feature i .NET 8, endast enklare demo.
+
+TODO
