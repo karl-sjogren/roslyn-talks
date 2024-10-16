@@ -218,8 +218,9 @@ I callbacken som registreras så kan man sen inspektera noden och skapa upp en `
 som beskriver vad som är fel.
 
 Detta är allt som behövs för att skapa en enkel analyzer. Om man lägger den i ett projekt
-som har netstandard2.0 som target så kan man sen antingen publicera detta som ett NuGet-paket
-eller referera det direkt i sitt projekt.
+som har `netstandard2.0 som` target så kan man sen antingen publicera detta som ett NuGet-paket
+eller referera det direkt i sitt projekt. Att referera projektet direkt kommer dock med
+vissa problem och är egentligen inte rekommenderat.
 
 Om man vill referera det som ett projekt så använder man en vanlig `ProjectReference` där man
 sätter `OutputItemType="Analyzer"`.
@@ -234,9 +235,88 @@ sätter `OutputItemType="Analyzer"`.
   </ItemGroup>
 ```
 
+Vill man referera ett NuGet-paket med analyzers så gör det med en `PackageReference`.
+
+```xml
+  <ItemGroup>
+    <PackageReference Include="KindaUselessAnalyzers" Version="1.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+```
+
+Genom att sätta `PrivateAssets` till `all` så undviker man att paketet propageras
+till andra projekt som refererar det inkluderande projektet projekt. `IncludeAssets`
+i exemplet ovan är det som är standard för ett analyzer-paket, men i de flesta fall
+hade man kunnat minska ner det till enbart `analyzers`.
+
 ### Enhetstesta analyzers
 
-TODO
+Att skriva enhetstester för analyzers är relativt enkelt tack vare bra stödbibliotek.
+När man genererar ett analyzer-projekt i Visual Studio. Av någon anledning finns det
+inga `dotnet new`-templates för detta ännu.
+
+Det finns ett antal klasser i mappen `RoslynUtils` som hjälper till att skapa upp
+"AnalyzerVerifier", "CodeFixVerifier" och "RefactoringVerifier". I sin testklass sen
+så kan man lätt sätta upp ett alias för verifiern enligt följande.
+
+```csharp
+using VerifyCS = KindaUselessAnalyzers.Tests.RoslynUtils.CSharpAnalyzerVerifier<KindaUselessAnalyzers.KindaUselessAnalyzers>;
+```
+
+Själva testet sen blir att skapa upp en kodsträng med en lite speciell syntax som
+beskriver var analyzern ska markera för att testet ska passera. Man k
+
+```csharp
+    [Fact]
+    public async Task FindsString() {
+        var test = new VerifyCS.Test {
+            TestState =
+            {
+                Sources = { """
+public class Program {
+    public static void Main() {
+        var normalString = [|"Hello, World!"|];
+    }
+}
+""" }
+            }
+        };
+
+        await test.RunAsync();
+    }
+```
+
+Detta är det enklaste sättet att göra ett enhetstest för en analyzer, och i många
+fall räcker det. Men i vissa fall kanske man vill verifiera vad analyzern hittar
+också, och då kan man använda en annan syntax för att fånga upp en mer information.
+
+```csharp
+    [Fact]
+    public async Task FindsStringExplicit() {
+        var test = new VerifyCS.Test {
+            TestState =
+            {
+                Sources = { """
+public class Program {
+    public static void Main() {
+        var normalString = {|#0:"Hello, World!"|};
+    }
+}
+""" }
+            },
+            ExpectedDiagnostics = {
+                VerifyCS
+                    .Diagnostic()
+                    .WithLocation(0)
+                    .WithArguments("\"Hello, World!\"")
+            }
+        };
+
+        await test.RunAsync();
+    }
+```
 
 ### CodeFixes
 
@@ -317,7 +397,45 @@ göra den lowercase. Om användaren väljer att aktivera någon av dessa från g
 
 ### Enhetstesta CodeFixes
 
-TODO
+Att enhetstesta en `CodeFix` fungerar på samma sätt som att enhetstesta en `Analyzer`. Man
+sätter upp ett alias för en `CodeFixVerifier` istället och matar den med både analyzern och
+codefixen.
+
+```csharp
+using VerifyFixCS = KindaUselessAnalyzers.Tests.RoslynUtils.CSharpCodeFixVerifier<KindaUselessAnalyzers.StringWithNonUniformCasingAnalyzer, KindaUselessAnalyzers.StringWithNonUniformCasingCodeFixProvider>;
+```
+
+Sen i sitt test så skriver man hur koden ser ut före och efter att codefixen körts. Om man
+har flera codefixes i samma `CodeFixProvider` så kan man även ange den `equivalenceKey`
+som ska köras.
+
+```csharp
+    [Fact]
+    public async Task ToUpperActionShouldMakeStringUpperCase() {
+        var test = new VerifyFixCS.Test {
+            TestState =
+            {
+                Sources = { """
+public class Program {
+    public static void Main() {
+        var badString = [|"Hello, World!"|];
+    }
+}
+""" }
+            },
+            FixedCode = """
+public class Program {
+    public static void Main() {
+        var badString = [|"HELLO, WORLD!"|];
+    }
+}
+""",
+            CodeActionEquivalenceKey = "StringWithNonUniformCasingCodeFixProvider_ToUpper"
+        };
+
+        await test.RunAsync();
+    }
+```
 
 ## Sourcegenerators
 

@@ -21,6 +21,31 @@ public class Program {
 
         await test.RunAsync();
     }
+
+    [Fact]
+    public async Task FindsStringExplicit() {
+        var test = new VerifyCS.Test {
+            TestState =
+            {
+                Sources = { """
+public class Program {
+    public static void Main() {
+        var normalString = {|#0:"Hello, World!"|};
+    }
+}
+""" }
+            },
+            ExpectedDiagnostics = {
+                VerifyCS
+                    .Diagnostic()
+                    .WithLocation(0)
+                    .WithArguments("\"Hello, World!\"")
+            }
+        };
+
+        await test.RunAsync();
+    }
+
     [Fact]
     public async Task FindStringsInDifferenctLocations() {
         var test = new VerifyCS.Test {
