@@ -6,7 +6,6 @@ using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Operations;
 using Microsoft.CodeAnalysis.Text;
 
 namespace SeriousSourceGenerator;
@@ -25,11 +24,10 @@ public class StringVariantSourceGenerator : IIncrementalGenerator {
                 transform: GetSourcePropertyInfo)
             .Where(static m => m is not null);
 
-        context.RegisterSourceOutput(propertiesToGenerate,
-            static (spc, propertyToGenerate) => Execute(propertyToGenerate, spc));
+        context.RegisterSourceOutput(propertiesToGenerate, Execute);
     }
 
-    private static void Execute(SourcePropertyInfo? propertyToGenerate, SourceProductionContext context) {
+    private static void Execute(SourceProductionContext context, SourcePropertyInfo? propertyToGenerate) {
         if(!(propertyToGenerate is { } property)) {
             return;
         }

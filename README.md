@@ -439,7 +439,294 @@ public class Program {
 
 ## Sourcegenerators
 
-TODO
+En source generator är precis vad det låter som, något som genererar källkod.Man kan
+generera precis vad som helst här, men det vanligaste är att matcha något som utvecklaren
+bett om att få genererat. Genereringen sker som ett steg i kompileringen av koden, rentav
+innan eventuella analyzers körs. Så analyzers kan hitta fel i den genereraede koden också.
+Att detta genereras så pass tidigt i flödet gör också att t.ex. Intellisense kan använda
+sig av den genererade koden.
+
+Ett vanligt scenario för en source generator är att matcha en property eller metod som har
+attributet `GeneratedRegexAttribute` för att generera koden för att exekvera en regular
+expression.
+
+```csharp
+public partial class SampleContainer {
+    [GeneratedRegex(@"^[a-zA-Z]+[0-9]*?|[0-9]*?[a-zA-Z]+$")]
+    public partial Regex GetGeneratedRegex();
+
+    [GeneratedRegex(@"^[a-zA-Z]+[0-9]*?|[0-9]*?[a-zA-Z]+$")]
+    public partial Regex GeneratedRegex { get; }
+}
+```
+
+Detta skapar i bakgrunden upp en partial av klassen `SampleContainer` som innehåller en
+metod och en property som returnerar en `Regex` som matchar den regular expression som
+angavs i attributet.
+
+Det går att se resultatet av detta genom att i sin projektfil lägga på följande
+egenskaper.
+
+```xml
+  <PropertyGroup>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>GeneratedSources</CompilerGeneratedFilesOutputPath>
+  </PropertyGroup>
+```
+
+När man gjort detta och sen kör `dotnet build` så skapas en mapp som heter `GeneratedSources`
+som innehåller den genererade koden.
+
+### Skapa en source generator
+
+En source generator ärver från `IIncrementalGenerator` (äldre generators kan ärva från
+`ISourceGenerator` vilket var första generationens source generators) och implementerar
+en `Initialize`-metod. I denna så kan man med en hjälpmetod säga att man vill inspektera
+alla syntaxnoder som är markerade med ett specifikt attribut, alternativt sätta upp detta
+manuellt liknande med en analzer.
+
+I exemplet nedan så inspekterar vi alla klasser som har attributet `GenerateStringVariantsAttribute`
+som då sen körs genom ett predikat där vi validerar noden ytterligare och sen körs en
+transform som parsar upp noden till det vi behöver för att generera vår kod.
+
+```csharp
+private const string _markerAttributeName = "SeriousSourceGenerator.GenerateStringVariantsAttribute";
+
+public void Initialize(IncrementalGeneratorInitializationContext context) {
+    var propertiesToGenerate = context.SyntaxProvider
+        .ForAttributeWithMetadataName(
+            _markerAttributeName,
+            predicate: CheckIfValidProperty,
+            transform: GetSourcePropertyInfo)
+        .Where(static m => m is not null);
+
+    context.RegisterSourceOutput(propertiesToGenerate, Execute);
+}
+```
+
+I det här exemplet så vill vi bara matcha på syntaxnoder som matchar följande regler.
+
+- Är en property
+- Har typen `string` eller `string?`
+- Inte har en setter
+- Har en getter
+  - Men bara en auto-property
+- Initieras till en strängliteral
+
+Då skulle predikat-metoden se ut så här.
+
+```csharp
+private static bool CheckIfValidProperty(SyntaxNode node, CancellationToken _) {
+    if(node is not PropertyDeclarationSyntax propertySyntax) {
+        return false;
+    }
+
+    if(propertySyntax.Type.ToString() is not "string" and not "string?") {
+        return false;
+    }
+
+    if(propertySyntax.AccessorList is null) {
+        return false;
+    }
+
+    if(propertySyntax.AccessorList.Accessors.Any(a => a.Kind() == SyntaxKind.SetAccessorDeclaration)) {
+        return false;
+    }
+
+    if(propertySyntax.AccessorList.Accessors.Any(a => a.Body is not null)) {
+        return false;
+    }
+
+    if(propertySyntax.Initializer is null) {
+        return false;
+    }
+
+    var initializerValueSyntax = propertySyntax.Initializer.Value;
+    if(initializerValueSyntax is not LiteralExpressionSyntax) {
+        return false;
+    }
+
+    return true;
+}
+```
+
+Om något är markerat med attributet men inte uppfyller kraven så kommer
+ingenting att genereras. En del paket här har därför en analyzer som
+verifierar användningen av attributet så att man direkt kan få en varning
+om man sätter attributet på en ogiltig property.
+
+I transform-metoden sen så parsar vi upp syntaxnoden till en record med all
+information vi behöver för att generera vår kod, t.ex. namespace, klassnamn,
+propertynamn, osv.
+
+```csharp
+private static SourcePropertyInfo? GetSourcePropertyInfo(GeneratorAttributeSyntaxContext context, CancellationToken cancellationToken) {
+    if(context.TargetSymbol is not IPropertySymbol propertySymbol || context.TargetNode is not PropertyDeclarationSyntax propertySyntax) {
+        return null;
+    }
+
+    cancellationToken.ThrowIfCancellationRequested();
+
+    var @namespace = propertySymbol.ContainingNamespace.IsGlobalNamespace ? string.Empty : propertySymbol.ContainingNamespace.ToString();
+
+    var className = propertySymbol.ContainingType.Name;
+    var classModifier = propertySymbol.ContainingType.DeclaredAccessibility.ToString().ToLowerInvariant();
+    var fullyQualifiedClassName = @namespace + "." + className;
+
+    var propertyName = propertySymbol.Name;
+
+    var initializerValueSyntax = propertySyntax.Initializer.Value as LiteralExpressionSyntax;
+    var initialValue = initializerValueSyntax.Token.Value as string;
+
+    return new SourcePropertyInfo(className, fullyQualifiedClassName, classModifier, propertyName, @namespace, initialValue);
+}
+```
+
+Sen i `Execute`-metoden så genererar vi vår kod utifrån den information vi
+sammanställt.
+
+Den genererade koden är i många fall en partial-klass som utökar den klassen där
+attributet användes, men det går att lägga till helt fristående filer och klasser
+också.
+
+I detta fall så genererar vi en partial-klass, dvs vi använder samma klassnamn,
+namespace, modifier som på original-klassen. Sen lägger vi till två properties
+med samma namn som på original-propertyn men med suffixen `UpperCase` och
+`LowerCase`. Dessa initieras sedan med `ToUpperInvariant` respektive `ToLowerInvariant`
+på det värde som propertyn hade.
+
+Sen lägger vi till denna kod i `SourceProductionContext` med ett filnamn som är
+unikt för den här propertyn så vi inte riskerar att krocka om man satt attributet
+på flera ställen.
+
+```csharp
+private static void Execute(SourceProductionContext context, SourcePropertyInfo? propertyToGenerate) {
+    if(!(propertyToGenerate is { } property)) {
+        return;
+    }
+
+    var sb = new StringBuilder();
+    var value = property.PropertyInitializerValue;
+
+    sb.AppendLine("//------------------------------------------------------------------------------");
+    sb.AppendLine("// <auto-generated>");
+    sb.AppendLine("//     This code was geneted by " + nameof(StringVariantSourceGenerator) + ".");
+    sb.AppendLine("// </auto-generated>");
+    sb.AppendLine("//------------------------------------------------------------------------------");
+    sb.AppendLine();
+
+    sb.AppendLine("namespace " + property.Namespace + ";");
+    sb.AppendLine();
+    sb.AppendLine("#nullable enable");
+    sb.AppendLine();
+    sb.AppendLine($"{property.ClassModifier} partial class {property.ClassName} {{");
+    sb.AppendLine($"    public string {property.PropertyName}UpperCase {{ get; }} = \"{value.ToUpperInvariant()}\";");
+    sb.AppendLine($"    public string {property.PropertyName}LowerCase {{ get; }} = \"{value.ToLowerInvariant()}\";");
+    sb.AppendLine("}");
+
+    context.AddSource(property.ClassName + "_" + property.PropertyName + "_StringVariants.g.cs", SourceText.From(sb.ToString(), Encoding.UTF8));
+}
+```
+
+### Enhetstesta SourceGenerators
+
+Att enhetstesta en source generator är lite mer komplicerat än att testa en analyzer
+då det inte följer med några hjälpklasser för detta. Som tur är så finns det folk
+som lösta detta själva.
+
+Följande metod är lånad från paketet `NetEscapades.EnumGenerators`. Det den gör är att
+ta källkod som en sträng, parsa upp den med Roslyn-APIet, köra source generatorn och
+sen returnera den genererade koden och eventuella diagnostics.
+
+```csharp
+public static (ImmutableArray<Diagnostic> Diagnostics, SourceOutput[] Output) GetGeneratedOutput<T>(string source)
+    where T : IIncrementalGenerator, new() {
+    var syntaxTree = CSharpSyntaxTree.ParseText(source);
+    var references = AppDomain.CurrentDomain.GetAssemblies()
+        .Where(_ => !_.IsDynamic && !string.IsNullOrWhiteSpace(_.Location))
+        .Select(_ => MetadataReference.CreateFromFile(_.Location))
+        .Concat(new[]
+        {
+            MetadataReference.CreateFromFile(typeof(T).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(GenerateStringVariantsAttribute).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(System.ComponentModel.DataAnnotations.DisplayAttribute).Assembly.Location),
+        });
+
+    var compilation = CSharpCompilation.Create(
+        "generator",
+        new[] { syntaxTree },
+        references,
+        new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+    var originalTreeCount = compilation.SyntaxTrees.Length;
+    var generator = new T();
+
+    var driver = CSharpGeneratorDriver.Create(generator);
+    driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
+
+    var sourceOutputs = outputCompilation
+        .SyntaxTrees
+        .Skip(1)
+        .Select(x => new SourceOutput(Path.GetFileName(x.FilePath), x.ToString()))
+        .ToArray();
+
+    return (diagnostics, sourceOutputs);
+}
+```
+
+Med hjälp av den klassen så är det sen väldigt enkelt att skriva enhetstester
+som verifierer den genererade koden.
+
+```csharp
+    [Fact]
+    public void WhenInvoked_WithSingleProperty_GeneratesExpectedOutput() {
+        const string input = @"using SeriousSourceGenerator;
+
+namespace MyTestNameSpace {
+    internal partial class CoolClass {
+        [GenerateStringVariants]
+        public string? CoolProp { get; } = ""ZebraTastic!"";
+
+        [GenerateStringVariants]
+        public string? CoolPropWithSetter { get; set; } = ""ZebraTastic!"";
+    }
+}";
+        var (diagnostics, sourceOutputs) = TestHelpers.GetGeneratedOutput<StringVariantSourceGenerator>(input);
+
+        diagnostics.ShouldBeEmpty();
+
+        var generatedFile = sourceOutputs.FirstOrDefault(x => x.Filename == "CoolClass_CoolProp_StringVariants.g.cs");
+
+        generatedFile.ShouldNotBeNull();
+
+        generatedFile.Output.ShouldBe(@"//------------------------------------------------------------------------------
+// <auto-generated>
+//     This code was geneted by MultiLanguageSourceGenerator.
+// </auto-generated>
+//------------------------------------------------------------------------------
+
+namespace MyTestNameSpace;
+
+#nullable enable
+
+internal partial class CoolClass {
+    public Dictionary<string, string?>? CoolPropMultiLang { get; set; }
+
+    public Dictionary<string, string?>? GetCoolPropMultiLang() {
+        if(CoolProp is null) {
+            return null;
+        }
+
+        var prop = CoolPropMultiLang ??= new Dictionary<string, string?>();
+
+        prop[""iv""] = CoolProp;
+
+        return prop;
+    }
+}
+", StringCompareShould.IgnoreLineEndings);
+    }
+```
 
 ### Interceptors
 
