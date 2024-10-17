@@ -437,6 +437,14 @@ public class Program {
     }
 ```
 
+### Refactorings
+
+TODO
+
+### Enhetstesta Refactorings
+
+TODO
+
 ## Sourcegenerators
 
 En source generator är precis vad det låter som, något som genererar källkod.Man kan
